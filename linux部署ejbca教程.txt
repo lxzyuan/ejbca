@@ -1,0 +1,107 @@
+ejbca 搭建
+VMware Workstation CentOS-6.9-i386
+软件版本
+jdk-6u13-linux-i586.bin 一定要用i585的
+jboss-5.1.0.GA-jdk6.zip
+ejbca_4_0_3.zip
+jce_policy-6_5.zip   扩展密码长度用的库，替换 jdk/jre/lib/security同名jar包
+apache-ant-1.8.2-bin.tar.bz
+
+把 mysql-connector-Java-5.1.15-bin.jar拷贝到jboss-5.1.0.GA/server/default/lib/
+
+解压软件，设置好环境变量
+export JAVA_HOME=/usr/local/jdk1.6.0_45
+export JRE_HOME=/usr/local/jdk1.6.0_45/jre
+export ANT_HOME=/usr/local/ant
+ANT_OPTS=-Xmx1024m
+export EJBCA_HOME=/usr/local/ejbca_4_0_10
+export APPSRV_HOME=/usr/local/jboss
+export PATH=$PATH:$JAVA_HOME/bin:$JAVA_HOME/jre/bin:$ANT_HOME/bin:$EJBCA_HOME/bin:$APPSRV_HOME/bin:/usr/local/mysql/bin:/usr/local/mysql/bin
+export CLASSPATH=.:$JAVA_HOME/lib:$JRE_HOME/lib
+
+cp ejbca/lib/bc*.jar mysql-connector-java-5.1.15-bin.jar  jboss/server/default/lib   -v
+拷贝数据驱动jar包到  jboss/server/default/lib
+
+
+[ cp  jboss/client/{jaxb-api.jar,jbossws-native-jaxws-ext.jar,jbossws-native-jaxws.jar,jbossws-native-jaxrpc.jar,jbossws-native-saaj.jar}  jboss/lib/endorsed  -v ] [有待验证]
+
+
+新建一个ejbca数据库
+然后再开启jboss服务，这时就会生成一系列的表
+
+验证jboss是否正常
+启动jboss    ./jboss/bin/run.sh    没有错误输出，能访问到 http://localhost:8080
+关闭jboss    ./jboss/bin/shutdown.sh
+
+编辑ejbca配置文件
+cp conf/install.properties.sample conf/install.properties -v
+cp conf/ejbca.properties.sample conf/ejbca.properties -v
+cp conf/database.properties.sample conf/database.properties -v
+cp conf/web.properties.sample conf/web.properties -v
+
+install.properties 是创建证书时的应答文件
+
+1.ejbca.properties
+appserver.home=${env.APPSRV_HOME}
+appserver.type=jboss
+ejbca.productionmode=ca
+
+2.database.properties
+database.name=mysql
+database.url=jdbc:mysql://127.0.0.1:3306/ejbca?characterEncoding=UTF-8
+database.driver=com.mysql.jdbc.Driver
+database.username=root
+database.password=123456
+
+3.web.propertises
+java.trustpassword=fjnucom
+superadmin.cn=SuperAdmin
+superadmin.dn=CN=${superadmin.cn}
+superadmin.password=fjnucom
+superadmin.batch=true
+httpsserver.password=fjnucom
+httpsserver.hostname=ca.fjnu.com
+httpsserver.dn=CN=${httpsserver.hostname},O=EJBCA Sample,C=SE
+httpserver.privhttps=8443
+web.availablelanguages=ZH,EN,ES,FR,IT,PT,PT_BR,SE,DE
+
+
+
+cd ejbca
+
+ant clean
+build success
+
+ant bootstrap   (获取变量，配置编译配置文件)
+build success
+
+启动jboss   没错误输出，能访问http://localhost:8080/ejbca
+
+ant install  （数据库生成表）
+build success
+
+停止jboss
+
+ant deploy  (部署)
+
+排错，重点对jboss报错信息进行排查，jboss会为安装过程提供服务，所以提供的服务必须正常
+	ejbca配置文件修改后，须运行ant clean;ant bootstrap生成新的war
+web界面登录用户名 superadmin 密码配置文件ejbca.propertises
+
+
+
+jaxb-api.jar  jbossws-native-jaxws-ext.jar  jbossws-native-jaxws.jar  jbossws-native-jaxrpc.jar  jbossws-native-saaj.jar
+
+/usr/local/ejbca_4_0_10/p12/superadmin.p12
+./ejbcawsracli.sh finduser username equals tomcat 
+https://ca.funu.com:8443/ejbca/ejbcaws/ejbcaws?wsdl
+
+最后在浏览器中添加证书，点击“Administration”,选择“SuperAdmin”,这时就会看到CA/RA管理界面
+
+注意：
+关闭防火墙：service iptables stop
+
+iptables -I INPUT -p tcp --dport 8443 -j ACCEPT 
+iptables -I INPUT -p tcp --dport 8442 -j ACCEPT 
+iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 
+
